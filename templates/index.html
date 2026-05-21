@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ESP32 Vehicle Safety Console</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <header class="topbar">
+      <div class="brand-mark" aria-hidden="true">VS</div>
+      <div class="topbar-copy">
+        <span class="eyebrow">Live fleet safety</span>
+        <h1>Vehicle Safety Console</h1>
+        <p>ESP32 alerts, Firebase updates, vibration state, LED response, and latest location in one focused workspace.</p>
+      </div>
+      <div class="topbar-actions">
+        <span class="live-pill"><span class="status-dot"></span><span id="connection-status">System Online</span></span>
+        <button class="ghost-button" id="refresh-button">Refresh</button>
+        <button class="theme-toggle" id="theme-toggle">Dark Mode</button>
+      </div>
+    </header>
+
+    <nav class="dashboard-nav" aria-label="Dashboard sections">
+      <button class="nav-button active" data-page="overview" type="button">Overview</button>
+      <button class="nav-button" data-page="alerts" type="button">Alerts</button>
+      <button class="nav-button" data-page="location" type="button">Location</button>
+      <button class="nav-button" data-page="simulator" type="button">Simulator</button>
+    </nav>
+
+    <main class="dashboard-main">
+      <section class="dashboard-page active" data-page-panel="overview">
+        <section class="metrics-strip" aria-label="Dashboard summary">
+          <article class="metric-tile danger-tile">
+            <span class="metric-label">Active Alerts</span>
+            <strong class="metric-value" id="alert-count">0</strong>
+            <span class="metric-note">Waiting for ESP32 events</span>
+          </article>
+          <article class="metric-tile">
+            <span class="metric-label">Vehicles Seen</span>
+            <strong class="metric-value" id="vehicle-count">0</strong>
+            <span class="metric-note">Unique vehicle IDs today</span>
+          </article>
+          <article class="metric-tile">
+            <span class="metric-label">High Priority</span>
+            <strong class="metric-value" id="high-count">0</strong>
+            <span class="metric-note">Requires immediate review</span>
+          </article>
+          <article class="metric-tile">
+            <span class="metric-label">Cleared Alarms</span>
+            <strong class="metric-value" id="clear-count">0</strong>
+            <span class="metric-note">This browser session</span>
+          </article>
+        </section>
+
+        <section class="overview-grid">
+          <article class="panel detail-panel">
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">Incident Snapshot</span>
+                <h2>Latest Details</h2>
+              </div>
+            </div>
+            <dl class="detail-list compact-detail-list">
+              <div>
+                <dt>Vehicle</dt>
+                <dd id="detail-vehicle">No alert selected</dd>
+              </div>
+              <div>
+                <dt>Status</dt>
+                <dd id="detail-status">Waiting</dd>
+              </div>
+              <div>
+                <dt>Vibration</dt>
+                <dd id="detail-vibration">Normal</dd>
+              </div>
+              <div>
+                <dt>LED State</dt>
+                <dd id="detail-led">Normal</dd>
+              </div>
+              <div>
+                <dt>Last Updated</dt>
+                <dd id="last-updated">Never</dd>
+              </div>
+            </dl>
+          </article>
+
+          <article class="panel shortcut-panel">
+            <div class="panel-header">
+              <div>
+                <span class="section-kicker">Quick Navigation</span>
+                <h2>Dashboard Pages</h2>
+              </div>
+            </div>
+            <div class="shortcut-grid">
+              <button class="shortcut-card" data-page="alerts" type="button">
+                <strong>Alerts</strong>
+                <span>Search, filter, clear, and export incidents.</span>
+              </button>
+              <button class="shortcut-card" data-page="location" type="button">
+                <strong>Location</strong>
+                <span>View latest coordinates and map position.</span>
+              </button>
+              <button class="shortcut-card" data-page="simulator" type="button">
+                <strong>Simulator</strong>
+                <span>Send a test alert without leaving the console.</span>
+              </button>
+            </div>
+          </article>
+        </section>
+      </section>
+
+      <section class="dashboard-page" data-page-panel="alerts">
+        <article class="panel feed-panel full-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">Response Queue</span>
+              <h2>Accident History</h2>
+            </div>
+            <div class="panel-actions">
+              <button class="ghost-button" id="export-button">Export CSV</button>
+              <button class="action-button" id="clear-button">Delete All</button>
+            </div>
+          </div>
+          <div class="feed-toolbar">
+            <label class="search-field">
+              <span>Search</span>
+              <input type="search" id="alert-search" placeholder="Vehicle, status, location..." />
+            </label>
+            <div class="filter-tabs" aria-label="Alert severity filter">
+              <button class="filter-tab active" data-filter="all" type="button">All</button>
+              <button class="filter-tab" data-filter="high" type="button">High</button>
+              <button class="filter-tab" data-filter="medium" type="button">Medium</button>
+              <button class="filter-tab" data-filter="low" type="button">Low</button>
+            </div>
+          </div>
+          <div class="history-table-wrap">
+            <table class="history-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Vehicle Type</th>
+                  <th>Vehicle Number</th>
+                  <th>Location</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="alert-list">
+                <tr>
+                  <td colspan="7" class="empty-table-cell">No Accident Records Found</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </article>
+      </section>
+
+      <section class="dashboard-page" data-page-panel="location">
+        <article class="panel location-panel full-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">Last Coordinates</span>
+              <h2>Vehicle Location</h2>
+            </div>
+          </div>
+          <div class="coordinate-row">
+            <div>
+              <span>Latitude</span>
+              <strong id="current-lat">0.000000</strong>
+            </div>
+            <div>
+              <span>Longitude</span>
+              <strong id="current-lng">0.000000</strong>
+            </div>
+          </div>
+          <div id="map" class="map-panel large-map-panel" aria-label="Google map showing latest vehicle location"></div>
+          <a class="map-link" id="current-map-link" href="https://www.google.com/maps/search/?api=1&query=0,0" target="_blank">Open latest location in Google Maps</a>
+        </article>
+      </section>
+
+      <section class="dashboard-page" data-page-panel="simulator">
+        <article class="panel simulator-panel form-panel">
+          <div class="panel-header">
+            <div>
+              <span class="section-kicker">Manual Test</span>
+              <h2>Simulate Alert</h2>
+            </div>
+          </div>
+          <form id="simulate-form" class="simulate-form">
+            <label>
+              <span>Vehicle Type</span>
+              <input type="text" id="vehicle-type" value="Delivery Truck" />
+            </label>
+            <label>
+              <span>Vehicle Number</span>
+              <input type="text" id="vehicle-number" value="AB-1234" />
+            </label>
+            <div class="field-pair">
+              <label>
+                <span>Latitude</span>
+                <input type="text" id="latitude" value="12.971598" />
+              </label>
+              <label>
+                <span>Longitude</span>
+                <input type="text" id="longitude" value="77.594566" />
+              </label>
+            </div>
+            <label>
+              <span>Accident Status</span>
+              <select id="status">
+                <option>Accident confirmed</option>
+                <option>Minor collision</option>
+                <option>Severe collision</option>
+                <option>Under investigation</option>
+              </select>
+            </label>
+            <label>
+              <span>Vibration Level</span>
+              <select id="sim-vibration-level">
+                <option>Low</option>
+                <option>Medium</option>
+                <option>High</option>
+              </select>
+            </label>
+            <button type="submit" class="primary-button">Send Test Alert</button>
+          </form>
+        </article>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    window.FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAyomb9wlQWfYmZ22IZ_Ksfx_pBeG5DRjA",
+      authDomain: "smartaccidentdetection-197fc.firebaseapp.com",
+      databaseURL: "https://smartaccidentdetection-197fc-default-rtdb.firebaseio.com",
+      projectId: "smartaccidentdetection-197fc",
+      storageBucket: "smartaccidentdetection-197fc.appspot.com",
+      messagingSenderId: "1090053921276",
+      appId: "1:1090053921276:web:24662710e4e4fa7fdfba79"
+    };
+    window.GOOGLE_MAPS_API_KEY = "{{ google_maps_api_key }}";
+  </script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
