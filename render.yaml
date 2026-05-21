@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: esp32-firebase-dashboard
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn dashboard:app --bind 0.0.0.0:$PORT --workers 2
+    envVars:
+      - key: FIREBASE_DATABASE_URL
+        sync: false
+      - key: FIREBASE_ALERTS_PATH
+        value: AccidentHistory
+      - key: FIREBASE_DATABASE_SECRET
+        sync: false
+      - key: GOOGLE_MAPS_API_KEY
+        sync: false
